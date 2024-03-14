@@ -1,0 +1,636 @@
+Program.Sub.ScreenSU.Start
+Gui.F_Lines_Sel..Create
+Gui.F_Lines_Sel..Caption("Select Order Lines")
+Gui.F_Lines_Sel..Size(5295,7935)
+Gui.F_Lines_Sel..MinX(0)
+Gui.F_Lines_Sel..MinY(0)
+Gui.F_Lines_Sel..Position(0,0)
+Gui.F_Lines_Sel..BackColor(-2147483633)
+Gui.F_Lines_Sel..MousePointer(0)
+Gui.F_Lines_Sel..Event(UnLoad,F_Lines_Sel_UnLoad)
+Gui.F_Lines_Sel.cmdSelectAll.Create(Button)
+Gui.F_Lines_Sel.cmdSelectAll.Size(1695,465)
+Gui.F_Lines_Sel.cmdSelectAll.Position(240,150)
+Gui.F_Lines_Sel.cmdSelectAll.Caption("Select All Lines")
+Gui.F_Lines_Sel.cmdSelectAll.Event(Click,cmdSelectAll_Click)
+Gui.F_Lines_Sel.cmdSelectOpen.Create(Button)
+Gui.F_Lines_Sel.cmdSelectOpen.Size(1695,465)
+Gui.F_Lines_Sel.cmdSelectOpen.Position(2160,150)
+Gui.F_Lines_Sel.cmdSelectOpen.Caption("Select Open Lines")
+Gui.F_Lines_Sel.cmdSelectOpen.Event(Click,cmdSelectOpen_Click)
+Gui.F_Lines_Sel.gsgcLines.Create(GsGridControl)
+Gui.F_Lines_Sel.gsgcLines.Size(5175,6150)
+Gui.F_Lines_Sel.gsgcLines.Position(0,750)
+Gui.F_Lines_Sel.gsgcLines.Anchor(15)
+Gui.F_Lines_Sel.cmdProceed.Create(Button)
+Gui.F_Lines_Sel.cmdProceed.Size(1695,465)
+Gui.F_Lines_Sel.cmdProceed.Position(240,7065)
+Gui.F_Lines_Sel.cmdProceed.Caption("Proceed")
+Gui.F_Lines_Sel.cmdProceed.DefaultValue("")
+Gui.F_Lines_Sel.cmdProceed.Anchor(6)
+Gui.F_Lines_Sel.cmdProceed.Event(Click,cmdProceed_Click)
+Gui.F_Copies..Create
+Gui.F_Copies..Caption("Setup Copies")
+Gui.F_Copies..Size(6450,6015)
+Gui.F_Copies..MinX(0)
+Gui.F_Copies..MinY(0)
+Gui.F_Copies..Position(0,0)
+Gui.F_Copies..BackColor(-2147483633)
+Gui.F_Copies..MousePointer(0)
+Gui.F_Copies..Event(UnLoad,F_Copies_UnLoad)
+Gui.F_Copies.gsgcCopies.Create(GsGridControl)
+Gui.F_Copies.gsgcCopies.Size(6330,4650)
+Gui.F_Copies.gsgcCopies.Position(0,315)
+Gui.F_Copies.gsgcCopies.Anchor(15)
+Gui.F_Copies.gsgcCopies.Event(CellValueChanged,gsgcCopies_CellValueChanged)
+Gui.F_Copies.cmdPrint.Create(Button)
+Gui.F_Copies.cmdPrint.Size(1695,465)
+Gui.F_Copies.cmdPrint.Position(240,5130)
+Gui.F_Copies.cmdPrint.Caption("Print")
+Gui.F_Copies.cmdPrint.Event(Click,cmdPrint_Click)
+Gui.F_Copies.cmdPrint.Anchor(6)
+Gui.F_Copies.cmdReturn.Create(Button)
+Gui.F_Copies.cmdReturn.Size(1695,465)
+Gui.F_Copies.cmdReturn.Position(2295,5130)
+Gui.F_Copies.cmdReturn.Caption("Return")
+Gui.F_Copies.cmdReturn.Event(Click,cmdReturn_Click)
+Gui.F_Copies.cmdReturn.Anchor(6)
+Gui.F_Copies.lblOrderNum.Create(Label,"Order:",True,1935,255,0,60,90,True,0,"Arial",8,-2147483633,0)
+Gui.F_Copies.lblCustomer.Create(Label,"Customer:",True,1935,255,0,2145,90,True,0,"Arial",8,-2147483633,0)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+V.Global.sOrderNumber.Declare(String)
+V.Global.sCustomer.Declare(String)
+Program.External.Include.Library("GCG_5833_Try_Catch.lib")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'By Josh Withrow for Newman Sanitary Gasket
+'Printing a qty of custom shipping labels for customers based on QTY_PER_BOX data extracted from NSG_PRIVCUST_XREF
+'Created 2016-05-04
+'Edited by BixRB 16 Jan 2020
+'Adding a UI for users to select 
+
+'ORDER HEADER SCREEN
+'Populate - 11560
+'Script 1 - 11910
+'Script 2 - 11920
+'Script 3 - 11930
+'000201 - Script 1
+'000202 - Script 2
+'000203 - Script 3
+
+'Button label...  since I have to name it/them in more than 1 place
+
+V.Local.sButtonLabel.Declare(String,"Print Labels GUI")
+V.Local.sIcon.Declare
+V.Local.sSQL.Declare
+V.Local.sLabel.Declare
+V.Local.i.Declare
+V.Local.iQty.Declare
+
+Function.Intrinsic.Control.SelectCase(V.Caller.Hook)
+	Function.Intrinsic.Control.CaseAny(11910,11920,11930)
+		'Script 1/2/3 Clicked - Print Labels
+		'If No Order Selected, notify user to choose an order.  Then end everything.
+		Function.Intrinsic.Control.If(V.Passed.000003.Trim,=,"",OR,V.Passed.000003.Trim,=,"0")
+			Function.Intrinsic.UI.Msgbox("Please open an order first.")
+			Function.Intrinsic.Control.End
+
+		Function.Intrinsic.Control.EndIf
+		'If we made it this far, lets do some work...
+		'Edit by BixRB, adding in GUI to select Lines then to Print Copies with different Quantities
+		F.Intrinsic.String.Build("{0}\gss2.ico",V.Caller.GASDir,V.Local.sIcon)
+		Gui.F_Lines_Sel..Icon(V.Local.sIcon)
+		F.Intrinsic.String.Build("{0}\gss2.ico",V.Caller.GASDir,V.Local.sIcon)
+		Gui.F_Copies..Icon(V.Local.sIcon)
+		
+		
+		Function.Intrinsic.String.LPad(V.Passed.000003,"0",7,V.Global.sOrderNumber)
+		F.Intrinsic.String.Build("Order: {0}",V.Global.sOrderNumber,V.Local.sLabel)
+		Gui.F_Copies.lblOrderNum.Caption(V.Local.sLabel)
+		V.Global.sCustomer.Set(V.Passed.000006)
+		F.Intrinsic.String.Build("Customer: {0}",V.Global.sCustomer,V.Local.sLabel)
+		Gui.F_Copies.lblCustomer.Caption(V.Local.sLabel)
+		F.Intrinsic.String.Build("select convert(0, SQL_BIT) as SEL_LINE, left(RECORD_NO, 3) as ORDER_LINE, rtrim(PART) as PART, rtrim(DESCRIPTION) as DESCRIPTION, 1 as COPIES, QTY_BO as QTY_TO_PRINT from V_ORDER_LINES where ORDER_NO = '{0}' and RECORD_NO <> '8000' order by ORDER_LINE;",V.Global.sOrderNumber,V.Local.sSQL)
+		F.ODBC.Connection!con.OpenCompanyConnection
+		F.Data.DataTable.CreateFromSQL("dtOrderLinesSel","con",V.Local.sSQL,True)
+		F.ODBC.Connection!con.Close
+		'Loop through and convert the qties to whole numebrs
+		F.Intrinsic.Control.For(V.Local.i,0,V.DataTable.dtOrderLinesSel.RowCount--,1)
+			V.Local.iQty.Set(V.DataTable.dtOrderLinesSel(V.Local.i).QTY_TO_PRINT!FieldVal)
+			F.Data.DataTable.SetValue("dtOrderLinesSel",V.Local.i,"QTY_TO_PRINT",V.Local.iQty)
+		F.Intrinsic.Control.Next(V.Local.i)
+		F.Data.DataView.Create("dtOrderLinesSel","dvSel")
+		F.Data.DataView.SetFilter("dtOrderLinesSel","dvSel","SEL_LINE = True")
+		F.Data.DataView.Create("dtOrderLinesSel","dvOpen")
+		F.Data.DataView.SetFilter("dtOrderLinesSel","dvOpen","QTY_TO_PRINT > 0")
+		F.Data.DataView.Create("dtOrderLinesSel","dvSelOpen")
+		F.Data.DataView.SetFilter("dtOrderLinesSel","dvSelOpen","QTY_TO_PRINT > 0 and SEL_LINE = True")
+		F.Intrinsic.Control.CallSub(OpenLineSelection)
+	Function.Intrinsic.Control.Case(11560)
+		'Rename Script 1/2/3 Button - referenced above
+		V.Passed.000201.Set(V.Local.sButtonLabel)
+	Function.Intrinsic.Control.CaseElse
+Function.Intrinsic.Control.EndSelect
+
+'SCREEN DEBUG FOR BIX
+'F.Intrinsic.String.Build("{0}\gss2.ico",V.Caller.GASDir,V.Local.sIcon)
+'Gui.F_Lines_Sel..Icon(V.Local.sIcon)
+'F.Intrinsic.String.Build("{0}\gss2.ico",V.Caller.GASDir,V.Local.sIcon)
+'Gui.F_Copies..Icon(V.Local.sIcon)
+'Gui.F_Copies.lblOrderNum.Caption("Order: 0000009")
+'Gui.F_Copies.lblCustomer.Caption("Customer: AAA000")
+'F.Intrinsic.String.Build("select convert(0, SQL_BIT) as SEL_LINE, left(RECORD_NO, 3) as ORDER_LINE, rtrim(PART) as PART, rtrim(DESCRIPTION) as DESCRIPTION, 1 as COPIES, QTY_BO as QTY_TO_PRINT from V_ORDER_LINES where ORDER_NO = '{0}' and RECORD_NO <> '8000' order by ORDER_LINE;","0000009",V.Local.sSQL)
+'F.ODBC.Connection!con.OpenCompanyConnection
+'F.Data.DataTable.CreateFromSQL("dtOrderLinesSel","con",V.Local.sSQL,True)
+'F.ODBC.Connection!con.Close
+'F.Data.DataView.Create("dtOrderLinesSel","dvSel")
+'F.Data.DataView.SetFilter("dtOrderLinesSel","dvSel","SEL_LINE = True")
+'F.Data.DataView.Create("dtOrderLinesSel","dvOpen")
+'F.Data.DataView.SetFilter("dtOrderLinesSel","dvOpen","QTY_TO_PRINT > 0")
+'F.Data.DataView.Create("dtOrderLinesSel","dvSelOpen")
+'F.Data.DataView.SetFilter("dtOrderLinesSel","dvSelOpen","QTY_TO_PRINT > 0 and SEL_LINE = True")
+'F.Intrinsic.Control.CallSub(OpenLineSelection)
+'SCREEN DEBUG FOR BIX
+
+Program.Sub.Main.End
+
+Program.Sub.LoadData.Start
+F.Intrinsic.Control.SetErrorHandler("PrintLabels_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.i.Declare(String)
+V.Local.fQtyLabels.Declare(Float)
+V.Local.iCalc.Declare(Long)
+V.Local.iQtyLabels.Declare(Long)
+V.Local.iLastLabelQty.Declare(Long)
+V.Local.iQtyPerBox.Declare(Long)
+V.Local.iQtyOrdered.Declare(Long)
+V.Local.sDSN.Declare(String)
+V.Local.sSQL.Declare(String,"SELECT * FROM V_NSG_ORDERS WHERE ORDER_NO='{0}'")
+V.Local.sLine.Declare
+V.Local.sFilter.Declare
+Function.Intrinsic.String.Build(V.Local.sSQL,V.Global.sOrderNumber,V.Local.sSQL)
+Function.Intrinsic.String.Build("GLOBAL_{0}",V.Caller.CompanyCode,V.Local.sDSN)
+F.ODBC.Connection!con.OpenConnection(V.Local.sDSN,"Master","master")
+
+Function.Intrinsic.Control.CallSub(checkdb)
+Function.Intrinsic.Control.CallSub(removeolddata)
+
+Function.Intrinsic.UI.ChangeWaitStatus("Building data...")
+
+F.ODBC.Connection!con.OpenLocalRecordsetRO("RS",V.Local.sSQL)
+'F.Intrinsic.Debug.InvokeDebugger
+F.Intrinsic.Debug.Stop
+
+'Note from BixRB
+'This program is not notated well, I will go back through and add my notes on what I found
+'The QTY_P_BOX values are set numbers that are pulled from Custom tables. Since my edits are changing QTY_ORDERED, we will need to use the QTY_ON_LABEL as the QTY_P_BOX
+
+'Loop thru every PART/LINE that exists in the order...
+Function.Intrinsic.Control.DoUntil(V.ODBC.con!RS.EOF,=,True)
+	
+	'Creating one (1) record in the labels table for every label calculated.
+	'Edited by Bix, not needed in current 16.2 build
+'	V.Local.i.Set(0)
+	
+	'Edit by BixRB, use the DataView for label qtys to use qty for specific labels
+	V.Local.sLine.Set(V.ODBC.con!RS.FieldValTrim!RECORD_NO)
+	F.Intrinsic.String.Build("ORDER_LINE = '{0}'",V.Local.sLine.Left3,V.Local.sFilter)
+	F.Data.DataView.SetFilter("dtOrderLinesSel","dvCopies",V.Local.sFilter)
+	
+	'Edit by BixRB, check Parent table to see if Line has been flagged for printing
+	F.Intrinsic.String.Build("{0} and SEL_LINE = True",V.Local.sFilter,V.Local.sFilter)
+	F.Data.DataView.SetFilter("dtOrderLinesSel","dvSel",V.Local.sFilter)
+	F.Intrinsic.Control.If(V.DataView.dtOrderLinesSel!dvSel.RowCount,=,1)
+		'Edited by BixRB
+		F.Intrinsic.Control.For(V.Local.i,0,V.DataView.dtOrderLinesSel!dvCopies.RowCount--,1)
+			V.Local.sSQL.Set("INSERT INTO NSG_ORDERLABELS (PCK_NO,ORDER_NO,RECORD_NO,SHIP_ID,CUSTOMER,PART,LOCATION,QTY_ORDERED,INV_ITEM_TYPE,INV_ITEM_STYLE,INV_ITEM_SIZE,INV_CUST_PNO,INV_QTY_P_BOX,PRIV_ITEM_TYPE,PRIV_ITEM_STYLE,PRIV_ITEM_SIZE,PRIV_CUST_PNO,PRIV_QTY_P_BOX) VALUES ('{0}','{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}','{9}','{10}','{11}','{12}','{13}','{14}','{15}','{16}','{17}')")
+			'Edited by BixRB
+			'Since we allow the user to specify the amount of quantities to put on the labels, we have no need to calculate the amount of quantites per box as the user is specifying them on the screens I created
+			Function.Intrinsic.String.Build(V.Local.sSQL,V.ODBC.con!RS.FieldValTrim!PCK_NO,V.ODBC.con!RS.FieldValTrim!ORDER_NO,V.ODBC.con!RS.FieldValTrim!RECORD_NO,V.ODBC.con!RS.FieldValTrim!SHIP_ID,V.ODBC.con!RS.FieldValTrim!CUSTOMER,V.ODBC.con!RS.FieldValTrim!PART,V.ODBC.con!RS.FieldValTrim!LOCATION,V.ODBC.con!RS.FieldValTrim!QTY_ORDERED,V.ODBC.con!RS.FieldValTrim!INV_ITEM_TYPE,V.ODBC.con!RS.FieldValTrim!INV_ITEM_STYLE,V.ODBC.con!RS.FieldValTrim!INV_ITEM_SIZE,V.ODBC.con!RS.FieldValTrim!INV_CUST_PNO,V.DataView.dtOrderLinesSel!dvCopies(V.Local.i).QTY_TO_PRINT!FieldValTrim,V.ODBC.con!RS.FieldValTrim!PRIV_ITEM_TYPE,V.ODBC.con!RS.FieldValTrim!PRIV_ITEM_STYLE,V.ODBC.con!RS.FieldValTrim!PRIV_ITEM_SIZE,V.ODBC.con!RS.FieldValTrim!PRIV_CUST_PNO,V.DataView.dtOrderLinesSel!dvCopies(V.Local.i).QTY_TO_PRINT!FieldVal,V.Local.sSQL)
+			F.Intrinsic.Debug.Stop
+			F.ODBC.Connection!con.Execute(V.Local.sSQL)
+		F.Intrinsic.Control.Next(V.Local.i)
+	F.Intrinsic.Control.EndIf
+	
+	'NEXT PART (return to beginning of loop)
+	F.ODBC.con!RS.MoveNext
+Function.Intrinsic.Control.Loop
+
+F.ODBC.con!RS.Close
+F.ODBC.Connection!con.Close
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("PrintLabels_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GAB_NSG_OrderLabels.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.LoadData.End
+
+Program.Sub.CheckDB.Start
+F.Intrinsic.Control.SetErrorHandler("CheckDB_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSQL.Declare(String)
+V.Local.bExists.Declare(Boolean)
+V.Local.sFile.Declare(String)
+
+Function.Intrinsic.String.Concat(V.Ambient.ScriptPath,"\GAB_NSG_OrderLabels_NSG_ORDERLABELS.txt",V.Local.sFile)
+
+F.ODBC.Connection!con.TableExists("NSG_ORDERLABELS",V.Local.bExists)
+Function.Intrinsic.Control.If(V.Local.bExists,<>,True)
+	Function.Intrinsic.UI.ChangeWaitStatus("Building tables...")
+	Function.Intrinsic.File.File2String(V.Local.sFile,V.Local.sSQL)
+	F.ODBC.Connection!con.Execute(V.Local.sSQL)
+Function.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("CheckDB_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GAB_NSG_OrderLabels.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.CheckDB.End
+
+Program.Sub.RemoveOldData.Start
+Function.Intrinsic.UI.ChangeWaitStatus("Cleaning up old data...")
+V.Local.sSQL.Declare(String,"DELETE FROM NSG_ORDERLABELS WHERE ORDER_NO='{0}'")
+Function.Intrinsic.String.Build(V.Local.sSQL,V.Global.sOrderNumber,V.Local.sSQL)
+F.ODBC.Connection!con.Execute(V.Local.sSQL)
+Program.Sub.RemoveOldData.End
+
+Program.Sub.CallBI.Start
+F.Intrinsic.Control.SetErrorHandler("CallBI_Err")
+F.Intrinsic.Control.ClearErrors
+
+Function.Intrinsic.UI.ChangeWaitStatus("Launching Crystal Reports...")
+
+V.Local.sError.Declare(String)
+V.Local.sParams.Declare(String)
+V.Local.sValues.Declare(String)
+V.Local.sCustomRptID.Declare(String)
+V.Local.sDSN.Declare(String)
+Function.Intrinsic.String.Build("GLOBAL_{0}",V.Caller.CompanyCode,V.Local.sDSN)
+V.Local.sSQL.Declare(String,"SELECT TOP 1 SALES_LBL_RPTID FROM V_CUST_FORM_INFO WHERE CUSTOMER='{0}'")
+
+V.Local.sParams.Set("ORDER_NO")
+'Function.Intrinsic.String.Concat(V.Global.sOrderNumber,
+V.local.sValues.Set(V.Global.sOrderNumber)
+Function.Intrinsic.String.Build(V.Local.sSQL,V.Global.sCustomer,V.Local.sSQL)
+
+'Get custom report ID if it has been setup.  If not, use the system standard.
+'F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+F.ODBC.Connection!con.OpenConnection(V.Local.sDSN,"Master","master")
+F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.sCustomRptID)
+
+Function.Intrinsic.Control.If(V.Local.sCustomRptID.Trim,=,"000000",OR,V.Local.sCustomRptID.Trim,=,"")
+	V.Local.sCustomRptID.Set("000053")
+Function.Intrinsic.Control.EndIf
+
+'Setup parameter name/value collections for Crystal...
+F.Intrinsic.String.Split(V.Local.sParams,"*!*",V.Local.sParams)
+F.Intrinsic.String.Split(V.Local.sValues,"*!*",V.Local.sValues)
+
+'Maybe add printer name later...
+F.Global.BI.PrintReport(V.Local.sCustomRptID,0,V.Local.sParams,V.Local.sValues,,True)
+
+Function.Intrinsic.UI.ChangeWaitStatus("Cleaning up unnecessary data...")
+Function.Intrinsic.Control.CallSub(removeolddata)
+F.ODBC.Connection!con.Close
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("CallBI_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GAB_NSG_OrderLabels.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+Program.Sub.CallBI.End
+
+Program.Sub.F_Lines_Sel_UnLoad.Start
+F.Intrinsic.Control.End
+Program.Sub.F_Lines_Sel_UnLoad.End
+
+Program.Sub.OpenLineSelection.Start
+'BixRB - Open screen for user to select Lines
+F.Intrinsic.Control.Try
+Gui.F_Lines_Sel.gsgcLines.AddGridviewFromDatatable("gvOrderLinesSel","dtOrderLinesSel")
+Gui.F_Copies.gsgcCopies.AddGridviewFromDataView("gvOrderLinesCopies","dtOrderLinesSel","dvSel")
+
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","MultiSelect",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","AllowSort",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","AllowFilter",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","ShowDetailTabs",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","ShowGroupPanel",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","AllowColumnMoving",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","OptionsSelectionEnableAppearanceFocusedRow",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","OptionsViewColumnAutoWidth",False)
+Gui.F_Lines_Sel.gsgcLines.SetGridviewProperty("gvOrderLinesSel","EnterKeyNavigation","Vertical")
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","MultiSelect",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","AllowSort",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","AllowFilter",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","ShowDetailTabs",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","ShowGroupPanel",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","AllowColumnMoving",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","OptionsSelectionEnableAppearanceFocusedRow",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","OptionsViewColumnAutoWidth",False)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","EnableAppearanceEvenRow",True)
+Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvOrderLinesCopies","EnterKeyNavigation","Vertical")
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","QTY_TO_PRINT","Visible",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","COPIES","Visible",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","SEL_LINE","Visible",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","QTY_TO_PRINT","Visible",False)
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","AllowShowHide",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","AllowShowHide",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","AllowShowHide",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","AllowShowHide",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","AllowShowHide",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","AllowShowHide",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","AllowShowHide",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","AllowShowHide",False)
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","AllowAutoFilter",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","AllowAutoFilter",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","AllowAutoFilter",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","AllowAutoFilter",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","AllowAutoFilter",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","AllowAutoFilter",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","AllowAutoFilter",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","AllowAutoFilter",False)
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","AllowGroup",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","AllowGroup",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","AllowGroup",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","AllowGroup",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","AllowGroup",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","AllowGroup",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","AllowGroup",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","AllowGroup",False)
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","ShowCaption",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","Caption","Line")
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","Caption","Part")
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","Caption","Desc.")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","Caption","Line")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","Caption","Part")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","Caption","Part")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","Caption","Qty of Labels")
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","AllowEdit",True)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","ReadOnly",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","AllowEdit",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","ReadOnly",True)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","AllowEdit",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","ReadOnly",True)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","AllowEdit",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","ReadOnly",True)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","AllowEdit",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","ReadOnly",True)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","AllowEdit",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","ReadOnly",True)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","AllowEdit",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","ReadOnly",True)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","AllowEdit",True)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","ReadOnly",False)
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","AllowSize",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","SEL_LINE","Width",1)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","AllowSize",False)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","Width",30)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","Width",125)
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","Width",150)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","AllowSize",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","Width",45)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","Width",125)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","Width",150)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","AllowSize",False)
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","Width",85)
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","HeaderHAlignment","Center")
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","HeaderHAlignment","Center")
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","HeaderHAlignment","Near")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","HeaderHAlignment","Center")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","HeaderHAlignment","Center")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","HeaderHAlignment","Near")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","HeaderHAlignment","Center")
+
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","ORDER_LINE","CellHAlignment","Center")
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","PART","CellHAlignment","Center")
+Gui.F_Lines_Sel.gsgcLines.SetColumnProperty("gvOrderLinesSel","DESCRIPTION","CellHAlignment","Near")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","ORDER_LINE","CellHAlignment","Center")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","PART","CellHAlignment","Center")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","DESCRIPTION","CellHAlignment","Near")
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","CellHAlignment","Center")
+
+Gui.F_Copies.gsgcCopies.SetColumnProperty("gvOrderLinesCopies","COPIES","CellBackColor","LightYellow")
+
+Gui.F_Lines_Sel.gsgcLines.MainView("gvOrderLinesSel")
+
+Gui.F_Lines_Sel..Show
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.OpenLineSelection.End
+
+Program.Sub.cmdSelectAll_Click.Start
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.DataTable.dtOrderLinesSel.RowCount,!=,V.DataView.dtOrderLinesSel!dvSel.RowCount)
+	F.Data.DataTable.SetValue("dtOrderLinesSel",-1,"SEL_LINE",True)
+F.Intrinsic.Control.Else
+	F.Data.DataTable.SetValue("dtOrderLinesSel",-1,"SEL_LINE",False)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdSelectAll_Click.End
+
+Program.Sub.cmdSelectOpen_Click.Start
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.DataView.dtOrderLinesSel!dvOpen.RowCount,!=,V.DataView.dtOrderLinesSel!dvSelOpen.RowCount)
+	F.Data.DataView.SetValue("dtOrderLinesSel","dvOpen",-1,"SEL_LINE",True)
+F.Intrinsic.Control.Else
+	F.Data.DataView.SetValue("dtOrderLinesSel","dvOpen",-1,"SEL_LINE",False)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdSelectOpen_Click.End
+
+Program.Sub.cmdProceed_Click.Start
+V.Local.sSelect.Declare
+V.Local.sRows.Declare
+V.Local.iCnt.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.DataView.dtOrderLinesSel!dvSel.RowCount,=,0)
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+Gui.F_Lines_Sel..Enabled(False)
+
+F.Intrinsic.Control.If(V.DataView.dtOrderLinesSel!dvCopies.Exists)
+	'Need to add new lines
+	F.Intrinsic.Control.For(V.Local.iCnt,0,V.DataView.dtOrderLinesSel!dvSel.RowCount--,1)
+		F.Intrinsic.String.Build("ORDER_LINE = '{0}'",V.DataView.dtOrderLinesSel!dvSel(V.Local.iCnt).ORDER_LINE!FieldVal,V.Local.sSelect)
+		F.Data.DataTable.Select("dtOrderLinesSel$dtCopies",V.Local.sSelect,V.Local.sRows)
+		F.Intrinsic.Control.If(V.Local.sRows,=,"***NORETURN***")
+			F.Data.DataTable.AddRow("dtOrderLinesSel$dtCopies","SEL_LINE",V.DataView.dtOrderLinesSel!dvSel(V.Local.iCnt).SEL_LINE!FieldVal,"ORDER_LINE",V.DataView.dtOrderLinesSel!dvSel(V.Local.iCnt).ORDER_LINE!FieldVal,"PART",V.DataView.dtOrderLinesSel!dvSel(V.Local.iCnt).PART!FieldVal,"DESCRIPTION",V.DataView.dtOrderLinesSel!dvSel(V.Local.iCnt).DESCRIPTION!FieldVal,"QTY_TO_PRINT",V.DataView.dtOrderLinesSel!dvSel(V.Local.iCnt).QTY_TO_PRINT!FieldVal,"COPIES",1)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Next(V.Local.iCnt)
+F.Intrinsic.Control.Else
+	F.Data.DataView.ToDataTable("dtOrderLinesSel","dvSel","dtOrderLinesSel$dtCopies",True)
+	F.Data.DataTable.AddRelation("dtOrderLinesSel","ORDER_LINE","dtOrderLinesSel$dtCopies","ORDER_LINE","CopyQtys")
+	F.Data.DataView.Create("dtOrderLinesSel$dtCopies","dvCopies")
+	
+	Gui.F_Copies.gsgcCopies.AddGridviewFromDataView("gvLabelQtys","dtOrderLinesSel","dvCopies")
+	
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","MultiSelect",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","AllowSort",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","AllowFilter",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","ShowDetailTabs",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","ShowGroupPanel",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","AllowColumnMoving",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","OptionsSelectionEnableAppearanceFocusedRow",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","OptionsViewColumnAutoWidth",False)
+	Gui.F_Copies.gsgcCopies.SetGridviewProperty("gvLabelQtys","EnterKeyNavigation","Vertical")
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","SEL_LINE","Visible",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","ORDER_LINE","Visible",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","PART","Visible",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","DESCRIPTION","Visible",False)
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","AllowShowHide",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","AllowShowHide",False)
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","AllowAutoFilter",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","AllowAutoFilter",False)
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","AllowGroup",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","AllowGroup",False)
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","Caption","Label #")
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","Caption","Qty on Label")
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","AllowEdit",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","ReadOnly",True)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","AllowGroup",True)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","ReadOnly",False)
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","AllowSize",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","Width",70)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","AllowSize",False)
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","Width",100)
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","HeaderHAlignment","Center")
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","HeaderHAlignment","Far")
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","COPIES","CellHAlignment","Center")
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","CellHAlignment","Far")
+	
+	Gui.F_Copies.gsgcCopies.SetColumnProperty("gvLabelQtys","QTY_TO_PRINT","CellBackColor","LightYellow")
+F.Intrinsic.Control.EndIf
+
+Gui.F_Copies.gsgcCopies.MainView("gvOrderLinesCopies")
+
+F.Intrinsic.Control.For(V.Local.iCnt,0,V.DataTable.dtOrderLinesSel.RowCount--,1)
+	F.Intrinsic.Control.If(V.DataTable.dtOrderLinesSel(V.Local.iCnt).SEL_LINE!FieldVal)
+		Gui.F_Copies.gsgcCopies.ExpandMasterRow("gvOrderLinesCopies",V.Local.iCnt)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iCnt)
+
+Gui.F_Copies..Show
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdProceed_Click.End
+
+Program.Sub.cmdReturn_Click.Start
+F.Intrinsic.Control.Try
+
+Gui.F_Copies..Visible(False)
+
+Gui.F_Lines_Sel..Enabled(True)
+Gui.F_Lines_Sel..SetFocus
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdReturn_Click.End
+
+Program.Sub.cmdPrint_Click.Start
+F.Intrinsic.Control.Try
+
+'Added by Bix
+'I already edited the data manipulation algorithm so just call it here instead
+
+Function.Intrinsic.UI.InvokeWaitDialog("Printing labels...")
+Function.Intrinsic.Control.CallSub(loaddata)
+Function.Intrinsic.Control.CallSub(callbi)
+Function.Intrinsic.UI.CloseWaitDialog
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdPrint_Click.End
+
+Program.Sub.F_Copies_UnLoad.Start
+'This is intentional
+Gui.F_Copies.cmdReturn.SetFocus
+F.Intrinsic.Control.ExitSub
+Program.Sub.F_Copies_UnLoad.End
+
+Program.Sub.gsgcCopies_CellValueChanged.Start
+V.Local.sFilter.Declare
+V.Local.iStart.Declare
+V.Local.iCnt.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.Args.Column.UCase,!=,"COPIES")
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Build("ORDER_LINE = '{0}'",V.DataTable.dtOrderLinesSel(V.Args.RowIndex).ORDER_LINE!FieldVal,V.Local.sFilter)
+F.Data.DataView.Create("dtOrderLinesSel$dtCopies","dvCheck")
+F.Data.DataView.SetFilter("dtOrderLinesSel","dvCheck",V.Local.sFilter)
+
+'Parse value to see if it makes sense
+F.Intrinsic.Control.If(V.Args.Value,<,1)
+	F.Data.DataTable.SetValue("dtOrderLinesSel",V.Args.RowIndex,"COPIES",V.DataView.dtOrderLinesSel!dvCheck.RowCount)
+F.Intrinsic.Control.ElseIf(V.DataView.dtOrderLinesSel!dvCheck.RowCount,>,V.Args.Value)
+	'Remove labels from child table
+	F.Intrinsic.Control.For(V.Local.iCnt,V.DataView.dtOrderLinesSel!dvCheck.RowCount--,V.Args.Value,-1)
+		F.Data.DataTable.DeleteRow("dtOrderLinesSel$dtCopies",V.DataView.dtOrderLinesSel!dvCheck(V.Local.iCnt).DataTableIndex)
+	F.Intrinsic.Control.Next(V.Local.iCnt)
+F.Intrinsic.Control.ElseIf(V.DataView.dtOrderLinesSel!dvCheck.RowCount,<,V.Args.Value)
+	'Add labels to child table
+	F.Intrinsic.Math.Add(V.DataView.dtOrderLinesSel!dvCheck.RowCount,1,V.Local.iStart)
+	
+	F.Intrinsic.Control.For(V.Local.iCnt,V.Local.iStart,V.Args.Value,1)
+		F.Data.DataTable.AddRow("dtOrderLinesSel$dtCopies","SEL_LINE",V.DataTable.dtOrderLinesSel(V.Args.RowIndex).SEL_LINE!FieldVal,"ORDER_LINE",V.DataTable.dtOrderLinesSel(V.Args.RowIndex).ORDER_LINE!FieldVal,"PART",V.DataTable.dtOrderLinesSel(V.Args.RowIndex).PART!FieldVal,"DESCRIPTION",V.DataTable.dtOrderLinesSel(V.Args.RowIndex).DESCRIPTION!FieldVal,"QTY_TO_PRINT",V.DataView.dtOrderLinesSel!dvCheck(V.DataView.dtOrderLinesSel!dvCheck.RowCount--).QTY_TO_PRINT!FieldVal,"COPIES",V.Local.iCnt)
+	F.Intrinsic.Control.Next(V.Local.iCnt)
+F.Intrinsic.Control.EndIf
+
+F.Data.DataView.Close("dtOrderLinesSel","dvCheck")
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.gsgcCopies_CellValueChanged.End
+
+Program.Sub.Comments.Start
+${$0$}$GAB_NSG_ShippingLabels$}$SUPERVSR$}$5/4/2016 2:17:20 PM$}$False
+Program.Sub.Comments.End
